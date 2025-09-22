@@ -1,6 +1,6 @@
 # PHP Event Processor
 
-O **php-event-processor** é um pacote para PHP pensado para processar eventos disparados por aplicações ou integrações, seguindo padrões modernos de arquitetura, inspirado pelo [spatie/laravel-webhook-client](https://github.com/spatie/laravel-webhook-client), mas com a proposta de ser desacoplado, agnóstico de framework e flexível para atender diferentes cenários empresariais.
+O **rotaz\event-processor** é um pacote para PHP pensado para processar eventos disparados por aplicações ou integrações, seguindo padrões modernos de arquitetura, inspirado pelo [spatie/laravel-webhook-client](https://github.com/spatie/laravel-webhook-client), mas com a proposta de ser desacoplado, agnóstico de framework e flexível para atender diferentes cenários empresariais.
 
 ---
 

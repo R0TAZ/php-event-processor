@@ -34,8 +34,8 @@ class EventProcessorConfig
     public readonly string $signingSecret;
     public readonly string $signatureHeaderName;
 
-    public readonly object $signatureValidator;
-    public readonly object $inboundProfile;
+    public readonly SignatureValidator $signatureValidator;
+    public readonly InboundProfile $inboundProfile;
     public readonly InboundResponse $inboundResponse;
     public readonly string $inboundDataModel;
     /** @var array<string>|string */
@@ -43,99 +43,36 @@ class EventProcessorConfig
     public readonly string $processInboundDataJobClass;
     public readonly string $inboundDataTransfer;
 
-    /**
-     * @param array{
-     *     name:string,
-     *     signing_secret?:string,
-     *     signature_header_name?:string,
-     *     signature_validator:class-string<SignatureValidator>,
-     *     inbound_profile:class-string<InboundProfile>,
-     *     inbound_response?:class-string<InboundResponse>,
-     *     inbound_data_model:class-string,
-     *     store_headers?:array<string>|string,
-     *     process_inbound_job:class-string<ProcessInboundDataJob>
-     * } $properties
-     * @throws InvalidConfig
-     */
     public function __construct(array $properties)
     {
         $this->name = $properties[self::KEY_NAME];
         $this->signingSecret = $properties[self::KEY_SIGNING_SECRET] ?? '';
         $this->signatureHeaderName = $properties[self::KEY_SIGNATURE_HEADER_NAME] ?? '';
+        $this->storeHeaders = $properties[self::KEY_STORE_HEADERS] ?? [];
+        $this->inboundDataTransfer = $properties[self::KEY_INBOUND_DATA_TRANSFER] ?? '';
+        $this->inboundDataModel = $properties[self::KEY_INBOUND_DATA_MODEL];
 
-        // Extract function: validate and resolve dependencies via container
-        $this->signatureValidator = $this->validateAndMake(
-            $properties[self::KEY_SIGNATURE_VALIDATOR] ?? null,
-            SignatureValidator::class,
-            InvalidConfig::class,
-            'invalidSignatureValidator'
-        );
+        if (! is_subclass_of($properties[self::KEY_SIGNATURE_VALIDATOR], SignatureValidator::class)) {
+            throw InvalidConfig::invalidSignatureValidator($properties[self::KEY_SIGNATURE_VALIDATOR]);
+        }
+        $this->signatureValidator = app($properties[self::KEY_SIGNATURE_VALIDATOR]);
 
-        $this->inboundProfile = $this->validateAndMake(
-            $properties[self::KEY_INBOUND_PROFILE] ?? null,
-            InboundProfile::class,
-            InvalidConfig::class,
-            'invalidInboundProfile'
-        );
+        if (! is_subclass_of($properties[self::KEY_INBOUND_PROFILE], InboundProfile::class)) {
+            throw InvalidConfig::invalidInboundProfile($properties[self::KEY_INBOUND_PROFILE]);
+        }
+        $this->inboundProfile = app($properties[self::KEY_INBOUND_PROFILE]);
 
         $inboundResponseClass = $properties[self::KEY_INBOUND_RESPONSE] ?? DefaultInboundResponse::class;
-        $this->inboundResponse = $this->validateAndMake(
-            $inboundResponseClass,
-            InboundResponse::class,
-            InvalidConfig::class,
-            'invalidInboundResponse' // fixed method name below
-        );
+        if (! is_subclass_of($inboundResponseClass, InboundResponse::class)) {
+            throw InvalidConfig::invalidInboundResponse($inboundResponseClass);
+        }
+        $this->inboundResponse = app($inboundResponseClass);
 
-        $this->inboundDataModel = $properties[self::KEY_INBOUND_DATA_MODEL];
-        $this->storeHeaders = $properties[self::KEY_STORE_HEADERS] ?? [];
-        $this->processInboundDataJobClass = $this->validateJobClass(
-            $properties[self::KEY_PROCESS_INBOUND_JOB] ?? null
-        );
-        $this->inboundDataTransfer = $properties[self::KEY_INBOUND_DATA_TRANSFER] ?? '';
+        if (! is_subclass_of($properties[self::KEY_PROCESS_INBOUND_JOB], ProcessInboundDataJob::class)) {
+            throw InvalidConfig::invalidProcessInboundDataJob($properties[self::KEY_PROCESS_INBOUND_JOB]);
+        }
+        $this->processInboundDataJobClass = str($properties[self::KEY_PROCESS_INBOUND_JOB]);
+
     }
 
-    /**
-     * Extracted utility to validate that a class-string implements an interface, then resolve from container.
-     *
-     * @template T of object
-     * @param class-string<T>|null $candidate
-     * @param class-string $mustImplement
-     * @param class-string $exceptionClass
-     * @param string $exceptionFactory
-     * @return T
-     */
-    private function validateAndMake(?string $candidate, string $mustImplement, string $exceptionClass, string $exceptionFactory): object
-    {
-        if ($candidate === null || ! is_subclass_of($candidate, $mustImplement)) {
-            /** @var callable $factory */
-            $factory = [$exceptionClass, $exceptionFactory];
-            throw $factory($candidate ?? 'null');
-        }
-
-        try {
-            /** @var object $instance */
-            $instance = app($candidate);
-            return $instance;
-        } catch (BindingResolutionException $e) {
-            /** @var callable $factory */
-            $factory = [$exceptionClass, $exceptionFactory];
-            throw $factory($candidate);
-        }
-    }
-
-    /**
-     * Extracted helper specifically for the job class string; returns class-string after validation.
-     *
-     * @param class-string<ProcessInboundDataJob>|null $candidate
-     * @return class-string<ProcessInboundDataJob>
-     * @throws InvalidConfig
-     */
-    private function validateJobClass(?string $candidate): string
-    {
-        if ($candidate === null || ! is_subclass_of($candidate, ProcessInboundDataJob::class)) {
-            throw InvalidConfig::invalidProcessInboundDataJob($candidate ?? 'null');
-        }
-
-        return $candidate;
-    }
 }

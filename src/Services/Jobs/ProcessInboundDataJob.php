@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Rotaz\EventProcessor\Domains\Models\AbstractInboundData;
 use Rotaz\EventProcessor\Domains\Models\InboundDataInterface;
 
 /**
@@ -33,11 +34,11 @@ abstract class ProcessInboundDataJob implements ShouldQueue
     /**
      * Constructor method.
      *
-     * @param InboundDataInterface $inboundData Dependency for handling inbound data.
+     * @param AbstractInboundData $inboundData
      * @return void
      */
     public function __construct(
-        public InboundDataInterface $inboundData
+        public AbstractInboundData $inboundData
     ) {
     }
 }

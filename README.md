@@ -30,30 +30,93 @@ O Event Processor centraliza o recebimento, validação, roteamento e processame
 
 ---
 
-## Exemplo de Uso
+## INSTALAÇÃO
+
+```bash
+composer require rotaz/event-processor
+```
+## CONFIGURAÇÃO BÁSICA
 
 ```php
-// Definindo um processador para um evento do tipo "UserRegistered"
-class UserRegisteredProcessor implements EventProcessorInterface
+php artisan vendor:publish --provider="Rotaz\EventProcessor\R0TAZEventProcessorServiceProvider" --tag="event-processor-config"    
+```
+
+```
+
+'configs' => [
+        [
+            'name' => 'evt-incoming-message',
+            'signing_secret' => env('INBOUND_EVENT_SIGNING_SECRET', 'your-signing-secret'),
+            'signature_header_name' => 'Signature',
+            'signature_validator' => \App\Integration\Kommo\SignatureValidator::class,
+            'inbound_profile' => \App\Integration\Kommo\IncomingMessageProfile::class,
+            'inbound_response' => \Rotaz\EventProcessor\Services\Messages\DefaultInboundResponse::class,
+            'inbound_data_model' => \Rotaz\EventProcessor\Domains\Models\AbstractInboundData::class,
+            'store_headers' => [],
+            'process_inbound_data_job' => '\App\Integration\Kommo\IncomingMessageProcessor',
+        ],
+        [
+            'name' => 'evt-kommo-contacts',
+            'signing_secret' => env('INBOUND_EVENT_SIGNING_SECRET', 'your-signing-secret'),
+            'signature_header_name' => 'Signature',
+            'signature_validator' => \App\Integration\Kommo\SignatureValidator::class,
+            'inbound_profile' => \App\Integration\Kommo\IncomingMessageProfile::class,
+            'inbound_response' => \Rotaz\EventProcessor\Services\Messages\DefaultInboundResponse::class,
+            'inbound_data_model' => \Rotaz\EventProcessor\Domains\Models\AbstractInboundData::class,
+            'store_headers' => [],
+            'process_inbound_data_job' => '\App\Integration\Kommo\ContactsProcessor',
+        ],
+    ],
+  
+ ```
+    
+## MIGRAÇÕES
+
+```bash
+php artisan vendor:publish --provider="Rotaz\EventProcessor\R0TAZEventProcessorServiceProvider" --tag="event-processor-migrations"
+php artisan migrate
+```
+
+
+## USO BÁSICO
+
+### Rota para receber eventos
+
+Edit o arquivo de rotas (web.php ou api.php):
+
+```php
+
+use Illuminate\Support\Facades\Route;
+
+
+Route::rotaz('v1/kommo/contacts', 'evt-kommo-contacts');
+Route::rotaz('v1/kommo/incoming-message', 'evt-incoming-message');
+
+
+```
+
+
+```php
+
+
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Rotaz\EventProcessor\Traits\WithKommoPayloadHelper;
+
+class IncomingMessageProcessor extends \Rotaz\EventProcessor\Services\Jobs\ProcessInboundDataJob
 {
-    public function canProcess(Event $event): bool
+    use WithKommoPayloadHelper;
+    
+    public function handle(): void
     {
-        return $event->type() === 'user.registered';
+        Log::debug('IncomingMessageProcessor handle', ['inboundData' => $this->inboundData]);
+        $data = $this->get_first_from($this->inboundData->payload , 'message.add');
+        KommoFacade::check_incoming_message($data);
     }
 
-    public function process(Event $event): void
-    {
-        // lógica para processar o evento
-    }
+
+
 }
-
-// Registrando processadores
-$dispatcher = new EventDispatcher();
-$dispatcher->registerProcessor(new UserRegisteredProcessor());
-
-// Recebendo e processando um evento
-$event = Event::fromArray($_POST); // ou de uma fila, webhook, etc
-$dispatcher->dispatch($event);
 ```
 
 ---

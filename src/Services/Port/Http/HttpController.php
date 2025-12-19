@@ -28,7 +28,7 @@ class HttpController
      */
     public function __invoke(Request $request, EventProcessorConfig $config): Response
     {
-        return new R0TAZEventProcessor($request, $config)->process();
+        return (new R0TAZEventProcessor($request, $config))->process();
     }
 
 }
